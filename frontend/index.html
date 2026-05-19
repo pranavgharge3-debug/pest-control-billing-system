@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pest Control Management System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <i class="fas fa-bug"></i>
+                <h1>Pest Control System</h1>
+                <p>Management Dashboard</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" required placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" required placeholder="Enter your password">
+                </div>
+                <div class="form-group">
+                    <label>Login As</label>
+                    <select id="loginRole">
+                        <option value="admin">Admin</option>
+                        <option value="technician">Technician</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+            <p class="register-link">Don't have an account? <a href="#" id="showRegister">Register</a></p>
+        </div>
+    </div>
+
+    <!-- Register Page -->
+    <div id="registerPage" class="login-container hidden">
+        <div class="login-box">
+            <div class="login-header">
+                <i class="fas fa-bug"></i>
+                <h1>Register</h1>
+                <p>Create new account</p>
+            </div>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="registerName" required placeholder="Enter your name">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="registerEmail" required placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="registerPassword" required placeholder="Enter your password">
+                </div>
+                <div class="form-group" id="employeeIdGroup" style="display: none;">
+                    <label>Employee ID</label>
+                    <input type="text" id="registerEmployeeId" placeholder="Enter employee ID">
+                </div>
+                <div class="form-group" id="phoneGroup" style="display: none;">
+                    <label>Phone</label>
+                    <input type="tel" id="registerPhone" placeholder="Enter phone number">
+                </div>
+                <div class="form-group">
+                    <label>Register As</label>
+                    <select id="registerRole">
+                        <option value="admin">Admin</option>
+                        <option value="technician">Technician</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Register</button>
+            </form>
+            <p class="register-link">Already have an account? <a href="#" id="showLogin">Login</a></p>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboardPage" class="dashboard-container hidden">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-bug"></i>
+                <h2>Pest Control</h2>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-link active" data-page="dashboard">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-link" data-page="customers">
+                    <i class="fas fa-users"></i>
+                    <span>Customers</span>
+                </a>
+                <a href="#" class="nav-link" data-page="services">
+                    <i class="fas fa-spray-can"></i>
+                    <span>Services</span>
+                </a>
+                <a href="#" class="nav-link" data-page="invoices">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Invoices</span>
+                </a>
+                <a href="#" class="nav-link" data-page="technicians">
+                    <i class="fas fa-user-cog"></i>
+                    <span>Technicians</span>
+                </a>
+                <a href="#" class="nav-link" data-page="followups">
+                    <i class="fas fa-bell"></i>
+                    <span>Follow-ups</span>
+                </a>
+                <a href="#" class="nav-link" data-page="payments">
+                    <i class="fas fa-credit-card"></i>
+                    <span>Payments</span>
+                </a>
+                <a href="#" class="nav-link" data-page="ai-features">
+                    <i class="fas fa-brain"></i>
+                    <span>AI Features</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="theme-toggle" id="themeToggle">
+                    <i class="fas fa-moon"></i>
+                    <span>Dark Mode</span>
+                </button>
+                <button class="logout-btn" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <h1 id="pageTitle">Dashboard</h1>
+                </div>
+                <div class="top-bar-right">
+                    <div class="notification-bell">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-count" id="notificationCount">0</span>
+                    </div>
+                    <div class="user-info">
+                        <i class="fas fa-user-circle"></i>
+                        <span id="userName">Admin</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="page-content" id="pageContent">
+                <!-- Dashboard Page -->
+                <div id="dashboardSection" class="page-section active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon blue">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Total Customers</h3>
+                                <p id="totalCustomers">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green">
+                                <i class="fas fa-rupee-sign"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Total Revenue</h3>
+                                <p id="totalRevenue">₹0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon orange">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Pending Payments</h3>
+                                <p id="pendingPayments">₹0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon purple">
+                                <i class="fas fa-calendar-day"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Today's Bookings</h3>
+                                <p id="todayBookings">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon red">
+                                <i class="fas fa-bell"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Follow-up Reminders</h3>
+                                <p id="followUpReminders">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon teal">
+                                <i class="fas fa-user-cog"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Active Technicians</h3>
+                                <p id="activeTechnicians">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h3>Revenue Trend</h3>
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3>Service Distribution</h3>
+                            <canvas id="serviceChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="recent-activities">
+                        <div class="activity-card">
+                            <h3>Recent Customers</h3>
+                            <div id="recentCustomersList"></div>
+                        </div>
+                        <div class="activity-card">
+                            <h3>Recent Invoices</h3>
+                            <div id="recentInvoicesList"></div>
+                        </div>
+                        <div class="activity-card">
+                            <h3>Recent Services</h3>
+                            <div id="recentServicesList"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customers Page -->
+                <div id="customersSection" class="page-section hidden">
+                    <div class="page-header">
+                        <h2>Customer Management</h2>
+                        <button class="btn btn-primary" id="addCustomerBtn">
+                            <i class="fas fa-plus"></i> Add Customer
+                        </button>
+                    </div>
+                    <div class="search-bar">
+                        <input type="text" id="customerSearch" placeholder="Search customers...">
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Customer Type</th>
+                                    <th>Total Spent</th>
+                                    <th>Last Service</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Services Page -->
+                <div id="servicesSection" class="page-section hidden">
+                    <div class="page-header">
+                        <h2>Service Management</h2>
+                        <button class="btn btn-primary" id="addServiceBtn">
+                            <i class="fas fa-plus"></i> Add Service
+                        </button>
+                    </div>
+                    <div class="filter-bar">
+                        <select id="serviceFilter">
+                            <option value="all">All Services</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Service Type</th>
+                                    <th>Date</th>
+                                    <th>Technician</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="servicesTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Invoices Page -->
+                <div id="invoicesSection" class="page-section hidden">
+                    <div class="page-header">
+                        <h2>Billing & Invoices</h2>
+                        <button class="btn btn-primary" id="addInvoiceBtn">
+                            <i class="fas fa-plus"></i> Create Invoice
+                        </button>
+                    </div>
+                    <div class="filter-bar">
+                        <select id="invoiceFilter">
+                            <option value="all">All Invoices</option>
+                            <option value="pending">Pending</option>
+                            <option value="paid">Paid</option>
+                            <option value="partial">Partial</option>
+                        </select>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Invoice #</th>
+                                    <th>Customer</th>
+                                    <th>Total Amount</th>
+                                    <th>GST</th>
+                                    <th>Payment Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoicesTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Technicians Page -->
+                <div id="techniciansSection" class="page-section hidden">
+                    <div class="page-header">
+                        <h2>Technician Management</h2>
+                        <button class="btn btn-primary" id="addTechnicianBtn">
+                            <i class="fas fa-plus"></i> Add Technician
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Employee ID</th>
+                                    <th>Phone</th>
+                                    <th>Completed Services</th>
+                                    <th>Rating</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="techniciansTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Follow-ups Page -->
+                <div id="followupsSection" class="page-section hidden">
+                    <div class="page-header">
+                        <h2>Follow-up Reminders</h2>
+                        <button class="btn btn-primary" id="addFollowUpBtn">
+                            <i class="fas fa-plus"></i> Add Reminder
+                        </button>
+                    </div>
+                    <div class="filter-bar">
+                        <select id="followUpFilter">
+                            <option value="all">All Reminders</option>
+                            <option value="pending">Pending</option>
+                            <option value="sent">Sent</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Type</th>
+                                    <th>Reminder Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="followupsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Payments Page -->
+                <div id="paymentsSection" class="page-section hidden">
+                    <div class="page-header">
+                        <h2>Payment History</h2>
+                        <button class="btn btn-primary" id="addPaymentBtn">
+                            <i class="fas fa-plus"></i> Record Payment
+                        </button>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon green">
+                                <i class="fas fa-rupee-sign"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Total Collected</h3>
+                                <p id="totalCollected">₹0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon blue">
+                                <i class="fas fa-calendar-day"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Today's Collection</h3>
+                                <p id="todayCollected">₹0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon purple">
+                                <i class="fas fa-calendar-alt"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>This Month</h3>
+                                <p id="monthCollected">₹0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Customer</th>
+                                    <th>Invoice #</th>
+                                    <th>Amount</th>
+                                    <th>Method</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paymentsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- AI Features Page -->
+                <div id="ai-featuresSection" class="page-section hidden">
+                    <div class="page-header">
+                        <h2>AI Features</h2>
+                    </div>
+                    <div class="ai-grid">
+                        <div class="ai-card">
+                            <div class="ai-icon">
+                                <i class="fas fa-bug"></i>
+                            </div>
+                            <h3>AI Pest Suggestion</h3>
+                            <p>Get intelligent pest identification and treatment recommendations based on symptoms and season.</p>
+                            <button class="btn btn-primary" onclick="showAIPestModal()">Get Suggestion</button>
+                        </div>
+                        <div class="ai-card">
+                            <div class="ai-icon">
+                                <i class="fas fa-spray-can"></i>
+                            </div>
+                            <h3>AI Service Recommendation</h3>
+                            <p>Receive personalized service recommendations based on pest type and severity.</p>
+                            <button class="btn btn-primary" onclick="showAIServiceModal()">Get Recommendation</button>
+                        </div>
+                        <div class="ai-card">
+                            <div class="ai-icon">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
+                            <h3>AI Follow-up Prediction</h3>
+                            <p>Predict optimal follow-up dates based on service history and customer patterns.</p>
+                            <button class="btn btn-primary" onclick="showAIFollowUpModal()">Predict Follow-up</button>
+                        </div>
+                        <div class="ai-card">
+                            <div class="ai-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <h3>Customer Risk Assessment</h3>
+                            <p>Analyze customer risk factors and get retention recommendations.</p>
+                            <button class="btn btn-primary" onclick="showAIRiskModal()">Assess Risk</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Container -->
+    <div id="modalContainer" class="modal-container hidden"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
