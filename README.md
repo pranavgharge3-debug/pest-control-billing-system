@@ -152,7 +152,7 @@ pest-control-system/
 
 ### Prerequisites
 - Node.js (v14 or higher)
-- MongoDB (v4.4 or higher)
+- MongoDB (v4.4 or higher) - See [MONGODB_SETUP.md](MONGODB_SETUP.md) for detailed setup instructions
 - npm or yarn
 
 ### Step 1: Clone the repository
@@ -166,11 +166,16 @@ npm install
 ```
 
 ### Step 3: Configure environment variables
-Create a `.env` file in the root directory with the following variables:
+Run the setup script to create `.env` file:
+```bash
+npm run setup-env
+```
+
+Or manually create a `.env` file in the root directory with the following variables:
 
 ```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/pest-control
+MONGODB_URI=mongodb://localhost:27017/pestcontrol
 JWT_SECRET=your_jwt_secret_key_here_change_in_production
 JWT_EXPIRE=7d
 NODE_ENV=development
@@ -178,15 +183,26 @@ NODE_ENV=development
 
 **Important**: Change `JWT_SECRET` to a secure random string in production.
 
-### Step 4: Start MongoDB
-Make sure MongoDB is running on your system:
+### Step 4: Set up MongoDB
+The application requires MongoDB for full functionality. Follow the detailed setup guide in [MONGODB_SETUP.md](MONGODB_SETUP.md).
+
+Quick start:
 ```bash
-# On Windows
+# Check if MongoDB is running
+npm run check-mongodb
+
+# If MongoDB is not running, start it:
+# Windows:
 net start MongoDB
 
-# Or if using MongoDB as a service
-mongod
+# Linux:
+sudo systemctl start mongod
+
+# macOS:
+brew services start mongodb-community
 ```
+
+**Note**: The server will start without MongoDB connection and run in limited mode. Database features will not work until MongoDB is connected.
 
 ### Step 5: Create uploads directory
 ```bash
@@ -203,6 +219,25 @@ npm start
 ```
 
 The server will start on `http://localhost:5000`
+
+### Step 7: Verify MongoDB connection
+Check the health endpoint:
+```bash
+curl http://localhost:5000/api/health
+```
+
+Expected response when MongoDB is connected:
+```json
+{
+  "status": "ok",
+  "database": {
+    "state": "connected",
+    "connected": true,
+    "host": "localhost"
+  },
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
 
 ## Usage
 
