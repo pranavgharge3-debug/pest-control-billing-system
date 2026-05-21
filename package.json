@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "setup-env": "node setup-env.js",
-    "check-mongodb": "node check-mongodb.js"
+    "check-mongodb": "node check-mongodb.js",
+    "full-start": "npm run check-mongodb && npm start"
   },
   "keywords": ["pest-control", "billing", "customer-tracking"],
   "author": "",

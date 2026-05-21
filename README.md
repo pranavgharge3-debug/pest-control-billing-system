@@ -209,16 +209,23 @@ brew services start mongodb-community
 mkdir uploads
 ```
 
-### Step 6: Start the server
+### Step 6: Start the full-stack application
+The application is a full-stack project where the backend serves the frontend. Both frontend and backend run together with a single command.
+
 ```bash
+# Quick start (checks MongoDB and starts server)
+npm run full-start
+
+# Or start server directly
+npm start
+
 # Development mode with auto-reload
 npm run dev
-
-# Or production mode
-npm start
 ```
 
-The server will start on `http://localhost:5000`
+The application will be available at `http://localhost:5000`
+
+**Note:** The server automatically serves the frontend from the `frontend` directory. No separate frontend server is needed.
 
 ### Step 7: Verify MongoDB connection
 Check the health endpoint:
