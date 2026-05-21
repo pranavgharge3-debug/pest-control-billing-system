@@ -184,6 +184,14 @@ function showDashboard() {
     document.getElementById('dashboardPage').classList.remove('hidden');
     document.getElementById('userName').textContent = currentUser?.name || 'Admin';
     
+    // Show dashboard section
+    document.querySelectorAll('.page-section').forEach(section => {
+        section.classList.remove('active');
+        section.classList.add('hidden');
+    });
+    document.getElementById('dashboardSection')?.classList.remove('hidden');
+    document.getElementById('dashboardSection')?.classList.add('active');
+    
     loadDashboardStats();
     loadRecentActivities();
 }
@@ -213,10 +221,15 @@ function navigateTo(page) {
     // Show appropriate section
     document.querySelectorAll('.page-section').forEach(section => {
         section.classList.remove('active');
+        section.classList.add('hidden');
     });
     
     const sectionId = page === 'ai-features' ? 'ai-featuresSection' : `${page}Section`;
-    document.getElementById(sectionId)?.classList.add('active');
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.remove('hidden');
+        targetSection.classList.add('active');
+    }
     
     // Load page data
     switch (page) {
