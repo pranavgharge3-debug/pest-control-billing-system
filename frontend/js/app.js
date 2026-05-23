@@ -1154,7 +1154,25 @@ async function viewInvoice(id) {
 
 async function downloadInvoicePDF(id) {
     try {
-        window.open(`${API_BASE}/invoices/${id}/pdf`, '_blank');
+        const headers = {
+            'Authorization': `Bearer ${authToken}`
+        };
+        
+        const response = await fetch(`${API_BASE}/invoices/${id}/pdf`, {
+            method: 'GET',
+            headers: headers
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to download PDF');
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        
+        // Clean up the object URL after opening
+        setTimeout(() => window.URL.revokeObjectURL(url), 100);
     } catch (error) {
         alert('Error downloading PDF: ' + error.message);
     }
@@ -1563,6 +1581,9 @@ async function showAddPaymentModal() {
         const invoices = await apiCall('/invoices');
         const pendingInvoices = invoices.filter(i => i.paymentStatus !== 'paid');
         
+        // Store invoices globally for filtering
+        window.paymentInvoices = pendingInvoices;
+        
         const modalHtml = `
             <div class="modal">
                 <div class="modal-header">
@@ -1582,7 +1603,7 @@ async function showAddPaymentModal() {
                             <label>Invoice *</label>
                             <select name="invoice" id="invoiceSelect" required>
                                 <option value="">Select Invoice</option>
-                                ${pendingInvoices.map(i => `<option value="${i._id}" data-customer="${i.customer}">${i.invoiceNumber} - ₹${i.totalAmount.toLocaleString()}</option>`).join('')}
+                                ${pendingInvoices.map(i => `<option value="${i._id}" data-customer="${i.customer._id || i.customer}">${i.invoiceNumber} - ₹${i.totalAmount.toLocaleString()}</option>`).join('')}
                             </select>
                         </div>
                         <div class="form-group">
@@ -1623,15 +1644,24 @@ async function showAddPaymentModal() {
 
 function filterInvoicesByCustomer(customerId) {
     const invoiceSelect = document.getElementById('invoiceSelect');
+    
+    // Clear select
     invoiceSelect.innerHTML = '<option value="">Select Invoice</option>';
     
-    document.querySelectorAll('#invoiceSelect option').forEach(option => {
-        if (option.dataset.customer === customerId || !customerId) {
-            option.style.display = 'block';
-        } else {
-            option.style.display = 'none';
-        }
-    });
+    // Filter invoices from stored data
+    if (window.paymentInvoices) {
+        const filteredInvoices = customerId 
+            ? window.paymentInvoices.filter(i => (i.customer._id || i.customer) === customerId)
+            : window.paymentInvoices;
+        
+        filteredInvoices.forEach(i => {
+            const option = document.createElement('option');
+            option.value = i._id;
+            option.dataset.customer = i.customer._id || i.customer;
+            option.textContent = `${i.invoiceNumber} - ₹${i.totalAmount.toLocaleString()}`;
+            invoiceSelect.appendChild(option);
+        });
+    }
 }
 
 async function savePayment() {
@@ -1640,8 +1670,21 @@ async function savePayment() {
     const paymentData = {};
     
     formData.forEach((value, key) => {
-        paymentData[key] = key === 'amount' ? parseFloat(value) : value;
+        if (key === 'amount') {
+            paymentData[key] = parseFloat(value);
+        } else if (key === 'customer' || key === 'invoice') {
+            // Ensure ObjectId fields are sent as strings
+            paymentData[key] = value;
+        } else {
+            paymentData[key] = value;
+        }
     });
+    
+    // Validate required fields
+    if (!paymentData.customer || !paymentData.invoice || !paymentData.amount || !paymentData.paymentMethod) {
+        alert('Please fill in all required fields');
+        return;
+    }
     
     try {
         await apiCall('/payments', 'POST', paymentData);
