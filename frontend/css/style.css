@@ -289,6 +289,31 @@ body {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    z-index: 900;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.sidebar-overlay:not(.hidden) {
+    opacity: 1;
+    visibility: visible;
+}
+
+.sidebar-open-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 22px;
+    cursor: pointer;
+    margin-right: 12px;
+}
+
 .theme-toggle,
 .logout-btn {
     width: 100%;
@@ -327,6 +352,10 @@ body {
     margin-left: var(--sidebar-width);
     display: flex;
     flex-direction: column;
+}
+
+.sidebar.open + .main-content {
+    margin-left: 0;
 }
 
 /* Top Bar */
@@ -497,6 +526,12 @@ body {
 .chart-card h3 {
     font-size: 18px;
     margin-bottom: 16px;
+}
+
+.chart-card canvas {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 260px;
 }
 
 /* Recent Activities */
@@ -734,7 +769,9 @@ body {
     width: 90%;
     max-width: 600px;
     max-height: 90vh;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .modal-header {
@@ -760,6 +797,8 @@ body {
 
 .modal-body {
     padding: 24px;
+    overflow-y: auto;
+    max-height: calc(90vh - 152px);
 }
 
 .modal-footer {
@@ -774,6 +813,7 @@ body {
 @media (max-width: 1024px) {
     .sidebar {
         transform: translateX(-100%);
+        position: fixed;
     }
     
     .sidebar.open {
@@ -784,12 +824,20 @@ body {
         display: block;
     }
     
+    .sidebar-open-btn {
+        display: inline-flex;
+    }
+    
     .main-content {
         margin-left: 0;
     }
     
     .charts-grid {
         grid-template-columns: 1fr;
+    }
+
+    .top-bar {
+        padding: 16px 20px;
     }
 }
 
@@ -820,12 +868,58 @@ body {
         gap: 16px;
     }
     
+    .top-bar-right {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .page-content {
+        padding: 16px;
+    }
+    
+    .stats-grid,
+    .recent-activities,
+    .ai-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-card {
+        padding: 18px;
+    }
+    
+    .chart-card {
+        padding: 20px;
+    }
+    
     .data-table {
+        width: 100%;
+        min-width: 680px;
         font-size: 12px;
+    }
+    
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
     .data-table th,
     .data-table td {
-        padding: 12px 8px;
+        padding: 12px 10px;
+    }
+    
+    .modal {
+        width: 95%;
+        max-width: 95%;
+    }
+    
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+    
+    .modal-body {
+        max-height: calc(90vh - 150px);
     }
 }

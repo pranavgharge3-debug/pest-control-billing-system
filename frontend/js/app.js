@@ -1,5 +1,10 @@
 // API Base URL
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = (() => {
+    if (typeof window !== 'undefined' && window.location && window.location.host) {
+        return `${window.location.protocol}//${window.location.host}/api`;
+    }
+    throw new Error('Unable to determine API base URL');
+})();
 
 // Global state
 let currentUser = null;
@@ -63,10 +68,13 @@ function setupEventListeners() {
     // Theme toggle
     document.getElementById('themeToggle').addEventListener('click', toggleTheme);
     
-    // Sidebar toggle
-    document.getElementById('sidebarToggle').addEventListener('click', () => {
-        document.getElementById('sidebar').classList.toggle('open');
+    // Sidebar controls
+    document.getElementById('sidebarOpenBtn')?.addEventListener('click', openSidebar);
+    document.getElementById('sidebarToggle')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeSidebar();
     });
+    document.getElementById('sidebarOverlay')?.addEventListener('click', closeSidebar);
     
     // Navigation
     document.querySelectorAll('.nav-link').forEach(link => {
@@ -172,6 +180,20 @@ function handleLogout() {
     showLogin();
 }
 
+function openSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar?.classList.add('open');
+    overlay?.classList.remove('hidden');
+}
+
+function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar?.classList.remove('open');
+    overlay?.classList.add('hidden');
+}
+
 // Navigation functions
 function showLogin() {
     document.getElementById('loginPage').classList.remove('hidden');
@@ -260,6 +282,7 @@ function navigateTo(page) {
     // Close sidebar on mobile
     if (window.innerWidth <= 1024) {
         document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebarOverlay')?.classList.add('hidden');
     }
 }
 
@@ -1166,13 +1189,26 @@ async function downloadInvoicePDF(id) {
         if (!response.ok) {
             throw new Error('Failed to download PDF');
         }
-        
         const blob = await response.blob();
+
+        // Try to respect filename from Content-Disposition header
+        const contentDisposition = response.headers.get('content-disposition') || '';
+        let filename = `${id}.pdf`;
+        const dispositionMatch = contentDisposition.match(/filename\*=UTF-8''(.+)|filename="(.+)"|filename=(.+)/i);
+        if (dispositionMatch) {
+            filename = decodeURIComponent(dispositionMatch[1] || dispositionMatch[2] || dispositionMatch[3]);
+        }
+
         const url = window.URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        
-        // Clean up the object URL after opening
-        setTimeout(() => window.URL.revokeObjectURL(url), 100);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        // Clean up the object URL after a short delay
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     } catch (error) {
         alert('Error downloading PDF: ' + error.message);
     }

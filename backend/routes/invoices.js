@@ -17,6 +17,74 @@ const generateInvoiceNumber = async () => {
   return `INV-${newNumber}`;
 };
 
+const COMPANY = {
+  name: 'PEST CONTROL SERVICES',
+  address: '123 Business Street, City - 123456',
+  email: 'support@pestcontrol.com',
+  phone: '+91 98765 43210',
+  gstin: '29ABCDE1234F1Z5',
+  pan: 'ABCDE1234F',
+  state: 'Karnataka',
+  stateCode: '29',
+  bank: {
+    name: 'State Bank of India',
+    account: '1234567890123456',
+    ifsc: 'SBIN0001234',
+    branch: 'Main Branch'
+  }
+};
+
+const formatIndianDate = (date) => {
+  const d = new Date(date);
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+};
+
+const formatAddress = (address) => {
+  if (!address) return '';
+  return [address.street, address.city, address.state, address.zipCode].filter(Boolean).join(', ');
+};
+
+const formatPaymentMethod = (method) => {
+  if (!method) return '';
+  return method.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+const formatCurrency = (amount) => {
+  const value = Number(amount) || 0;
+  return value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const numberToIndianWords = (amount) => {
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+    'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  const convertBelowThousand = (n) => {
+    if (n === 0) return '';
+    if (n < 20) return ones[n];
+    if (n < 100) return `${tens[Math.floor(n / 10)]}${n % 10 ? ` ${ones[n % 10]}` : ''}`.trim();
+    return `${ones[Math.floor(n / 100)]} Hundred${n % 100 ? ` ${convertBelowThousand(n % 100)}` : ''}`.trim();
+  };
+
+  const convert = (n) => {
+    if (n === 0) return 'Zero';
+    if (n < 1000) return convertBelowThousand(n);
+    if (n < 100000) {
+      return `${convert(Math.floor(n / 1000))} Thousand${n % 1000 ? ` ${convertBelowThousand(n % 1000)}` : ''}`.trim();
+    }
+    if (n < 10000000) {
+      return `${convert(Math.floor(n / 100000))} Lakh${n % 100000 ? ` ${convert(n % 100000)}` : ''}`.trim();
+    }
+    return `${convert(Math.floor(n / 10000000))} Crore${n % 10000000 ? ` ${convert(n % 10000000)}` : ''}`.trim();
+  };
+
+  const rupees = Math.floor(amount);
+  const paise = Math.round((amount - rupees) * 100);
+  let words = `${convert(rupees)} Rupees`;
+  if (paise > 0) words += ` and ${convert(paise)} Paise`;
+  return `${words} Only`;
+};
+
 // Get all invoices
 router.get('/', adminAuth, async (req, res) => {
   try {
@@ -142,248 +210,264 @@ router.get('/:id/pdf', adminAuth, async (req, res) => {
       return res.status(404).json({ message: 'Invoice not found' });
     }
 
-    const doc = new PDFDocument({ margin: 30, size: 'A4' });
+    const doc = new PDFDocument({ margin: 0, size: 'A4' });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${invoice.invoiceNumber}.pdf`);
+    // Create a safe filename and set both legacy `filename` and RFC5987 `filename*`
+    const safeFilename = `${invoice.invoiceNumber}.pdf`.replace(/["\\\r\n]/g, '');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodeURIComponent(safeFilename)}`);
     doc.pipe(res);
 
-    // Print-friendly black/gray colors
     const black = '#000000';
-    const darkGray = '#333333';
-    const mediumGray = '#666666';
-    const lightGray = '#999999';
+    const PAGE_W = 595.28;
+    const PAGE_H = 841.89;
+    const M = 15;
+    const L = M;
+    const T = M;
+    const W = PAGE_W - M * 2;
+    const B = PAGE_H - M;
 
-    const left = 30;
-    const right = 565;
-    const width = right - left;
+    const strokeBox = (x, y, w, h, lw = 0.75) => {
+      doc.save();
+      doc.lineWidth(lw).strokeColor(black).rect(x, y, w, h).stroke();
+      doc.restore();
+    };
 
-    // ============================================
-    // OUTER BORDER
-    // ============================================
-    doc.strokeColor(black).lineWidth(2).rect(left, 30, width, 770).stroke();
+    const hLine = (x, y, len, lw = 0.75) => {
+      doc.save();
+      doc.lineWidth(lw).strokeColor(black).moveTo(x, y).lineTo(x + len, y).stroke();
+      doc.restore();
+    };
 
-    // ============================================
-    // HEADER - PROFORMA INVOICE TITLE
-    // ============================================
-    doc.fontSize(22).fillColor(black).font('Helvetica-Bold').text('PROFORMA INVOICE', left, 45, { width: width, align: 'center' });
-    doc.fontSize(10).fillColor(mediumGray).font('Helvetica').text('Credit Sales', left, 72, { width: width, align: 'center' });
+    const vLine = (x, y, len, lw = 0.75) => {
+      doc.save();
+      doc.lineWidth(lw).strokeColor(black).moveTo(x, y).lineTo(x, y + len).stroke();
+      doc.restore();
+    };
 
-    // Header divider
-    doc.strokeColor(black).lineWidth(1).moveTo(left, 85).lineTo(right, 85).stroke();
+    const writeText = (text, x, y, w, options = {}) => {
+      const { size = 7, bold = false, align = 'left', lineGap = 0 } = options;
+      doc.save();
+      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(size)
+        .fillColor(black)
+        .text(String(text ?? ''), x + 3, y + 2, { width: w - 6, align, lineGap });
+      doc.restore();
+    };
 
-    // ============================================
-    // COMPANY DETAILS (LEFT SIDE)
-    // ============================================
-    const companyY = 95;
-    doc.fontSize(11).fillColor(black).font('Helvetica-Bold').text('PEST CONTROL SERVICES', left, companyY);
-    doc.fontSize(8).fillColor(darkGray).font('Helvetica');
-    doc.text('123 Business Street, City - 123456', left, companyY + 15);
-    doc.text('Email: support@pestcontrol.com', left, companyY + 27);
-    doc.text('Phone: +91 98765 43210', left, companyY + 39);
-    doc.text('GSTIN: 29ABCDE1234F1Z5', left, companyY + 51);
+    const customerAddress = formatAddress(invoice.customer?.address);
+    const halfGst = invoice.gstPercentage / 2;
+    const cgstAmount = invoice.gstAmount / 2;
+    const sgstAmount = invoice.gstAmount / 2;
 
-    // ============================================
-    // INVOICE DETAILS BOX (RIGHT SIDE)
-    // ============================================
-    const detailsBoxX = 320;
-    const detailsBoxY = 95;
-    const detailsBoxWidth = 245;
-    const detailsBoxHeight = 70;
+    const lineItems = (invoice.items && invoice.items.length > 0)
+      ? invoice.items
+      : [{
+          description: invoice.service?.serviceType || 'Pest Control Service',
+          quantity: 1,
+          rate: invoice.subtotal,
+          amount: invoice.subtotal
+        }];
 
-    doc.strokeColor(black).lineWidth(1).rect(detailsBoxX, detailsBoxY, detailsBoxWidth, detailsBoxHeight).stroke();
+    strokeBox(L, T, W, B - T, 1.5);
 
-    doc.fontSize(8).fillColor(black).font('Helvetica-Bold');
-    doc.text('Invoice No:', detailsBoxX + 5, detailsBoxY + 8);
-    doc.text('Date:', detailsBoxX + 5, detailsBoxY + 20);
-    doc.text('Payment Mode:', detailsBoxX + 5, detailsBoxY + 32);
-    doc.text('Delivery Note:', detailsBoxX + 5, detailsBoxY + 44);
-    doc.text('Reference No:', detailsBoxX + 5, detailsBoxY + 56);
+    const titleH = 34;
+    writeText('PROFORMA INVOICE', L, T, W, { size: 16, bold: true, align: 'center' });
+    writeText('(Original for Recipient)', L, T + 16, W, { size: 7, align: 'center' });
+    hLine(L, T + titleH, W, 1);
 
-    doc.fontSize(8).fillColor(darkGray).font('Helvetica');
-    doc.text(invoice.invoiceNumber, detailsBoxX + 80, detailsBoxY + 8);
-    doc.text(new Date(invoice.createdAt).toLocaleDateString(), detailsBoxX + 80, detailsBoxY + 20);
-    doc.text(invoice.paymentMethod ? invoice.paymentMethod.replace(/_/g, ' ').toUpperCase() : 'N/A', detailsBoxX + 80, detailsBoxY + 32);
-    doc.text('N/A', detailsBoxX + 80, detailsBoxY + 44);
-    doc.text('N/A', detailsBoxX + 80, detailsBoxY + 56);
+    const headerY = T + titleH;
+    const headerH = 172;
+    const leftColW = Math.round(W * 0.55);
+    const rightColW = W - leftColW;
+    const rightColX = L + leftColW;
 
-    // ============================================
-    // BILL TO SECTION
-    // ============================================
-    const billToY = 175;
-    doc.strokeColor(black).lineWidth(1).rect(left, billToY, width, 60).stroke();
-    
-    doc.fontSize(9).fillColor(black).font('Helvetica-Bold').text('BILL TO', left + 5, billToY + 5);
-    
-    doc.fontSize(8).fillColor(darkGray).font('Helvetica');
-    doc.text(`${invoice.customer.name}`, left + 5, billToY + 18);
-    
-    if (invoice.customer.address) {
-      const address = `${invoice.customer.address.street || ''}${invoice.customer.address.street ? ', ' : ''}${invoice.customer.address.city || ''}${invoice.customer.address.city ? ', ' : ''}${invoice.customer.address.state || ''} ${invoice.customer.address.zipCode || ''}`;
-      doc.text(address, left + 5, billToY + 30);
+    strokeBox(L, headerY, W, headerH);
+    vLine(rightColX, headerY, headerH);
+
+    let leftY = headerY + 4;
+    writeText(COMPANY.name, L, leftY, leftColW, { size: 9, bold: true });
+    leftY += 12;
+    writeText(COMPANY.address, L, leftY, leftColW, { size: 7 });
+    leftY += 10;
+    writeText(`Email: ${COMPANY.email}`, L, leftY, leftColW, { size: 7 });
+    leftY += 9;
+    writeText(`Phone: ${COMPANY.phone}`, L, leftY, leftColW, { size: 7 });
+    leftY += 9;
+    writeText(`GSTIN/UIN: ${COMPANY.gstin}`, L, leftY, leftColW, { size: 7 });
+    leftY += 9;
+    writeText(`State Name: ${COMPANY.state}, Code: ${COMPANY.stateCode}`, L, leftY, leftColW, { size: 7 });
+
+    const consigneeY = headerY + 58;
+    hLine(L, consigneeY, leftColW);
+    writeText('Consignee (Ship To)', L, consigneeY + 2, leftColW, { size: 7, bold: true });
+    writeText(invoice.customer?.name || '', L, consigneeY + 12, leftColW, { size: 7 });
+    writeText(customerAddress, L, consigneeY + 21, leftColW, { size: 7 });
+
+    const buyerY = headerY + 102;
+    hLine(L, buyerY, leftColW);
+    writeText('Buyer (Bill To)', L, buyerY + 2, leftColW, { size: 7, bold: true });
+    writeText(invoice.customer?.name || '', L, buyerY + 12, leftColW, { size: 7, bold: true });
+    writeText(customerAddress, L, buyerY + 21, leftColW, { size: 7 });
+    writeText(`Email: ${invoice.customer?.email || ''}`, L, buyerY + 30, leftColW, { size: 7 });
+    writeText(`Phone: ${invoice.customer?.phone || ''}`, L, buyerY + 39, leftColW, { size: 7 });
+
+    const metaFields = [
+      { label: 'Invoice No.', value: invoice.invoiceNumber },
+      { label: 'Dated', value: formatIndianDate(invoice.createdAt) },
+      { label: 'Delivery Note', value: '' },
+      { label: 'Mode/Terms of Payment', value: formatPaymentMethod(invoice.paymentMethod) },
+      { label: 'Reference No. & Date.', value: '' },
+      { label: 'Other References', value: invoice.notes || '' },
+      { label: "Buyer's Order No.", value: '' },
+      { label: 'Dispatch Doc No.', value: '' },
+      { label: 'Delivery Note Date', value: '' },
+      { label: 'Dispatched through', value: '' },
+      { label: 'Destination', value: customerAddress },
+      { label: 'Terms of Delivery', value: '' }
+    ];
+
+    const metaLabelW = 108;
+    const metaRowH = headerH / metaFields.length;
+
+    metaFields.forEach((field, index) => {
+      const rowY = headerY + index * metaRowH;
+      if (index > 0) hLine(rightColX, rowY, rightColW);
+      vLine(rightColX + metaLabelW, rowY, metaRowH);
+      writeText(field.label, rightColX, rowY + 1, metaLabelW, { size: 6.5, bold: true });
+      writeText(field.value, rightColX + metaLabelW, rowY + 1, rightColW - metaLabelW, { size: 6.5 });
+    });
+
+    const tableY = headerY + headerH;
+    const footerBlockH = 148;
+    const footerNoteH = 14;
+    const tableH = B - tableY - footerBlockH - footerNoteH;
+
+    const cols = [
+      { label: 'Sl\nNo.', w: 26 },
+      { label: 'Description of Goods/Services', w: 214 },
+      { label: 'HSN/SAC', w: 52 },
+      { label: 'Quantity', w: 44 },
+      { label: 'Rate', w: 52 },
+      { label: 'Per', w: 34 },
+      { label: 'Amount', w: W - 26 - 214 - 52 - 44 - 52 - 34 }
+    ];
+
+    const colX = [];
+    let cx = L;
+    cols.forEach((col) => {
+      colX.push(cx);
+      cx += col.w;
+    });
+
+    const headerRowH = 24;
+    const itemRowH = 16;
+    const totalsRowH = 18;
+    const totalsRows = 4;
+    const tableBodyH = tableH - headerRowH - totalsRowH * totalsRows;
+
+    strokeBox(L, tableY, W, tableH);
+
+    cols.forEach((col, i) => {
+      if (i > 0) vLine(colX[i], tableY, headerRowH);
+      writeText(col.label, colX[i], tableY + 4, col.w, { size: 6.5, bold: true, align: 'center' });
+    });
+    hLine(L, tableY + headerRowH, W);
+
+    cols.forEach((col, i) => {
+      if (i > 0) vLine(colX[i], tableY + headerRowH, tableH - headerRowH);
+    });
+
+    let rowY = tableY + headerRowH;
+    const maxItemRows = Math.floor(tableBodyH / itemRowH);
+
+    lineItems.slice(0, maxItemRows).forEach((item, index) => {
+      writeText(index + 1, colX[0], rowY + 3, cols[0].w, { size: 7, align: 'center' });
+      writeText(item.description, colX[1], rowY + 3, cols[1].w, { size: 7 });
+      writeText('998311', colX[2], rowY + 3, cols[2].w, { size: 7, align: 'center' });
+      writeText(item.quantity, colX[3], rowY + 3, cols[3].w, { size: 7, align: 'center' });
+      writeText(formatCurrency(item.rate), colX[4], rowY + 3, cols[4].w, { size: 7, align: 'right' });
+      writeText('Nos', colX[5], rowY + 3, cols[5].w, { size: 7, align: 'center' });
+      writeText(formatCurrency(item.amount), colX[6], rowY + 3, cols[6].w, { size: 7, align: 'right' });
+      rowY += itemRowH;
+    });
+
+    for (let i = lineItems.length; i < maxItemRows; i++) {
+      rowY += itemRowH;
     }
-    
-    doc.text(invoice.customer.email, left + 5, billToY + 42);
-    doc.text(invoice.customer.phone, left + 5, billToY + 52);
 
-    // ============================================
-    // SHIP TO SECTION
-    // ============================================
-    const shipToY = 240;
-    doc.strokeColor(black).lineWidth(1).rect(left, shipToY, width, 60).stroke();
-    
-    doc.fontSize(9).fillColor(black).font('Helvetica-Bold').text('SHIP TO', left + 5, shipToY + 5);
-    
-    doc.fontSize(8).fillColor(darkGray).font('Helvetica');
-    if (invoice.customer.address) {
-      const address = `${invoice.customer.address.street || ''}${invoice.customer.address.street ? ', ' : ''}${invoice.customer.address.city || ''}${invoice.customer.address.city ? ', ' : ''}${invoice.customer.address.state || ''} ${invoice.customer.address.zipCode || ''}`;
-      doc.text(address, left + 5, shipToY + 18);
-    } else {
-      doc.text('Same as Bill To Address', left + 5, shipToY + 18);
+    for (let i = 1; i <= maxItemRows; i++) {
+      hLine(L, tableY + headerRowH + i * itemRowH, W, 0.5);
     }
 
-    // ============================================
-    // ITEMS TABLE
-    // ============================================
-    const tableY = 305;
-    const tableHeight = 200;
-    const colWidths = [40, 200, 50, 60, 40, 115];
-    const colX = [left, left + 40, left + 240, left + 290, left + 350, left + 410];
-    const rowHeight = 22;
+    const totalsY = tableY + tableH - totalsRowH * totalsRows;
+    hLine(L, totalsY, W);
+    hLine(L, totalsY + totalsRowH, W);
+    hLine(L, totalsY + totalsRowH * 2, W);
+    hLine(L, totalsY + totalsRowH * 3, W);
 
-    // Table outer border
-    doc.strokeColor(black).lineWidth(1.5).rect(left, tableY, width, tableHeight).stroke();
+    const labelColX = colX[4];
+    const labelColW = cols[4].w + cols[5].w;
+    const amountColX = colX[6];
+    const amountColW = cols[6].w;
 
-    // Table header
-    doc.fillColor('#f0f0f0').rect(left + 1, tableY + 1, width - 2, rowHeight - 2).fill();
-    
-    doc.fontSize(8).fillColor(black).font('Helvetica-Bold');
-    doc.text('Sr No', colX[0] + 5, tableY + 7);
-    doc.text('Description', colX[1] + 5, tableY + 7);
-    doc.text('Qty', colX[2] + 5, tableY + 7);
-    doc.text('Rate', colX[3] + 5, tableY + 7);
-    doc.text('Per', colX[4] + 5, tableY + 7);
-    doc.text('Amount', colX[5] + 5, tableY + 7);
+    const totalRows = [
+      { label: 'Sub Total', value: formatCurrency(invoice.subtotal), bold: true },
+      { label: `CGST @ ${halfGst}%`, value: formatCurrency(cgstAmount), bold: false },
+      { label: `SGST @ ${halfGst}%`, value: formatCurrency(sgstAmount), bold: false },
+      { label: 'Grand Total', value: formatCurrency(invoice.totalAmount), bold: true }
+    ];
 
-    // Table rows
-    doc.font('Helvetica').fontSize(8);
-    let currentY = tableY + rowHeight;
-    let srNo = 1;
-    let maxRows = 8;
+    totalRows.forEach((row, index) => {
+      const y = totalsY + index * totalsRowH;
+      writeText(row.label, labelColX, y + 4, labelColW, { size: 7, bold: row.bold, align: 'right' });
+      writeText(`Rs. ${row.value}`, amountColX, y + 4, amountColW, { size: 7, bold: row.bold, align: 'right' });
+    });
 
-    if (invoice.items && invoice.items.length > 0) {
-      invoice.items.forEach((item, index) => {
-        if (index < maxRows) {
-          // Row border
-          doc.strokeColor(lightGray).lineWidth(0.5).rect(left + 1, currentY, width - 2, rowHeight).stroke();
-          
-          // Row text
-          doc.fillColor(darkGray);
-          doc.text(srNo.toString(), colX[0] + 5, currentY + 7);
-          doc.text(item.description, colX[1] + 5, currentY + 7, { width: 190 });
-          doc.text(item.quantity.toString(), colX[2] + 5, currentY + 7);
-          doc.text(item.rate.toLocaleString(), colX[3] + 5, currentY + 7);
-          doc.text('Nos', colX[4] + 5, currentY + 7);
-          doc.text(item.amount.toLocaleString(), colX[5] + 5, currentY + 7);
-          
-          currentY += rowHeight;
-          srNo++;
-        }
-      });
-    } else {
-      // If no items, show service info
-      doc.strokeColor(lightGray).lineWidth(0.5).rect(left + 1, currentY, width - 2, rowHeight).stroke();
-      doc.fillColor(darkGray);
-      doc.text('1', colX[0] + 5, currentY + 7);
-      doc.text(invoice.service?.serviceType || 'General Service', colX[1] + 5, currentY + 7, { width: 190 });
-      doc.text('1', colX[2] + 5, currentY + 7);
-      doc.text(invoice.subtotal.toLocaleString(), colX[3] + 5, currentY + 7);
-      doc.text('Nos', colX[4] + 5, currentY + 7);
-      doc.text(invoice.subtotal.toLocaleString(), colX[5] + 5, currentY + 7);
-      currentY += rowHeight;
-    }
+    const footerY = tableY + tableH;
+    const footerH = footerBlockH;
+    strokeBox(L, footerY, W, footerH);
 
-    // Fill remaining rows with borders
-    while (srNo <= maxRows) {
-      doc.strokeColor(lightGray).lineWidth(0.5).rect(left + 1, currentY, width - 2, rowHeight).stroke();
-      currentY += rowHeight;
-      srNo++;
-    }
+    const footerLeftW = Math.round(W * 0.62);
+    const footerRightW = W - footerLeftW;
+    const footerRightX = L + footerLeftW;
+    vLine(footerRightX, footerY, footerH);
 
-    // ============================================
-    // SUMMARY ROWS
-    // ============================================
-    const summaryY = tableY + tableHeight - rowHeight * 3;
-    
-    // Subtotal row
-    doc.strokeColor(black).lineWidth(1).moveTo(left, summaryY).lineTo(right, summaryY).stroke();
-    doc.fontSize(9).fillColor(black).font('Helvetica-Bold').text('Subtotal:', colX[4] + 5, summaryY + 7);
-    doc.text(`₹${invoice.subtotal.toLocaleString()}`, colX[5] + 5, summaryY + 7);
-    
-    // GST row
-    doc.strokeColor(lightGray).lineWidth(0.5).moveTo(left, summaryY + rowHeight).lineTo(right, summaryY + rowHeight).stroke();
-    doc.fontSize(9).fillColor(black).font('Helvetica').text(`GST (${invoice.gstPercentage}%):`, colX[4] + 5, summaryY + rowHeight + 7);
-    doc.text(`₹${invoice.gstAmount.toLocaleString()}`, colX[5] + 5, summaryY + rowHeight + 7);
-    
-    // Grand Total row
-    doc.strokeColor(black).lineWidth(1.5).moveTo(left, summaryY + rowHeight * 2).lineTo(right, summaryY + rowHeight * 2).stroke();
-    doc.fontSize(10).fillColor(black).font('Helvetica-Bold').text('GRAND TOTAL:', colX[4] + 5, summaryY + rowHeight * 2 + 7);
-    doc.text(`₹${invoice.totalAmount.toLocaleString()}`, colX[5] + 5, summaryY + rowHeight * 2 + 7);
+    const wordsH = 28;
+    writeText('Amount Chargeable (in words)', L, footerY + 3, footerLeftW, { size: 7, bold: true });
+    writeText(numberToIndianWords(invoice.totalAmount), L, footerY + 14, footerLeftW, { size: 7 });
+    hLine(L, footerY + wordsH, footerLeftW);
 
-    // ============================================
-    // AMOUNT IN WORDS
-    // ============================================
-    const amountWordsY = 515;
-    doc.strokeColor(black).lineWidth(1).rect(left, amountWordsY, width, 25).stroke();
-    doc.fontSize(8).fillColor(black).font('Helvetica-Bold').text('Amount in Words:', left + 5, amountWordsY + 8);
-    doc.fontSize(8).fillColor(darkGray).font('Helvetica').text(`Rupees ${invoice.totalAmount.toLocaleString()} Only`, left + 100, amountWordsY + 8);
+    const declY = footerY + wordsH;
+    writeText('Declaration', L, declY + 4, footerLeftW, { size: 7, bold: true });
+    writeText(
+      'We declare that this invoice shows the actual price of the goods/services described and that all particulars are true and correct.',
+      L,
+      declY + 14,
+      footerLeftW,
+      { size: 6.5, lineGap: 1 }
+    );
 
-    // ============================================
-    // BANK DETAILS
-    // ============================================
-    const bankY = 545;
-    doc.strokeColor(black).lineWidth(1).rect(left, bankY, width, 50).stroke();
-    
-    doc.fontSize(9).fillColor(black).font('Helvetica-Bold').text('BANK DETAILS', left + 5, bankY + 5);
-    
-    doc.fontSize(8).fillColor(darkGray).font('Helvetica');
-    doc.text('Bank Name: State Bank of India', left + 5, bankY + 18);
-    doc.text('Account No: 1234567890123456', left + 5, bankY + 30);
-    doc.text('IFSC Code: SBIN0001234', left + 200, bankY + 18);
-    doc.text('Branch: Main Branch', left + 200, bankY + 30);
+    const bankH = 72;
+    writeText("Company's Bank Details", footerRightX, footerY + 4, footerRightW, { size: 7, bold: true });
+    writeText(`Bank Name: ${COMPANY.bank.name}`, footerRightX, footerY + 14, footerRightW, { size: 6.5 });
+    writeText(`A/c No.: ${COMPANY.bank.account}`, footerRightX, footerY + 23, footerRightW, { size: 6.5 });
+    writeText(`Branch & IFS Code: ${COMPANY.bank.branch} & ${COMPANY.bank.ifsc}`, footerRightX, footerY + 32, footerRightW, { size: 6.5 });
+    hLine(footerRightX, footerY + bankH, footerRightW);
 
-    // ============================================
-    // DECLARATION
-    // ============================================
-    const declY = 600;
-    doc.strokeColor(black).lineWidth(1).rect(left, declY, width, 35).stroke();
-    
-    doc.fontSize(8).fillColor(black).font('Helvetica-Bold').text('DECLARATION', left + 5, declY + 5);
-    doc.fontSize(7).fillColor(darkGray).font('Helvetica').text('We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.', left + 5, declY + 18);
+    const signY = footerY + bankH;
+    const signH = footerH - bankH;
+    writeText(`For ${COMPANY.name}`, footerRightX, signY + 6, footerRightW, { size: 7, bold: true, align: 'right' });
+    hLine(footerRightX + 20, signY + signH - 22, footerRightW - 40);
+    writeText('Authorised Signatory', footerRightX, signY + signH - 14, footerRightW, { size: 6.5, align: 'right' });
 
-    // ============================================
-    // AUTHORIZED SIGNATURE
-    // ============================================
-    const sigY = 640;
-    doc.strokeColor(black).lineWidth(1).rect(left, sigY, width, 45).stroke();
-    
-    doc.fontSize(8).fillColor(black).font('Helvetica-Bold').text('For PEST CONTROL SERVICES', left + 5, sigY + 8);
-    doc.fontSize(7).fillColor(mediumGray).font('Helvetica').text('Authorized Signatory', right - 120, sigY + 8);
-    
-    // Signature line
-    doc.strokeColor(black).lineWidth(0.5).moveTo(right - 120, sigY + 35).lineTo(right - 20, sigY + 35).stroke();
-
-    // ============================================
-    // FOOTER
-    // ============================================
-    const footerY = 690;
-    doc.strokeColor(lightGray).lineWidth(1).moveTo(left, footerY).lineTo(right, footerY).stroke();
-    
-    doc.fontSize(8).fillColor(mediumGray).font('Helvetica').text('This is a Computer Generated Invoice', left, footerY + 10, { width: width, align: 'center' });
-    doc.fontSize(7).fillColor(mediumGray).text('Subject to local jurisdiction', left, footerY + 22, { width: width, align: 'center' });
+    hLine(L, footerY + footerH + 2, W, 0.75);
+    writeText('This is a Computer Generated Invoice', L, footerY + footerH + 4, W, { size: 6.5, align: 'center' });
 
     doc.end();
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
   }
 });
 
