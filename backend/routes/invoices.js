@@ -1,6 +1,7 @@
 const express = require('express');
 const Invoice = require('../models/Invoice');
 const Customer = require('../models/Customer');
+const Payment = require('../models/Payment');
 const PDFDocument = require('pdfkit');
 const { adminAuth } = require('../middleware/auth');
 
@@ -177,22 +178,50 @@ router.delete('/:id', adminAuth, async (req, res) => {
 // Update payment status
 router.patch('/:id/payment', adminAuth, async (req, res) => {
   try {
-    const { paymentStatus, paidAmount, paymentMethod } = req.body;
+    const { paymentStatus, paidAmount, paymentMethod, transactionId, notes } = req.body;
     const invoice = await Invoice.findById(req.params.id);
-    
+
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
 
-    invoice.paymentStatus = paymentStatus;
-    invoice.paidAmount = paidAmount || invoice.paidAmount;
+    let newPaidAmount = typeof paidAmount !== 'undefined' && paidAmount !== null
+      ? Number(paidAmount)
+      : invoice.paidAmount;
+
+    if (paymentStatus === 'paid' && newPaidAmount <= invoice.paidAmount) {
+      newPaidAmount = invoice.totalAmount;
+    }
+
+    const paymentDifference = newPaidAmount - (invoice.paidAmount || 0);
+    const normalizedStatus = paymentStatus || invoice.paymentStatus;
+
+    invoice.paidAmount = newPaidAmount;
     invoice.paymentMethod = paymentMethod || invoice.paymentMethod;
-    
-    if (paymentStatus === 'paid') {
+    invoice.paymentStatus = normalizedStatus;
+
+    if (invoice.paymentStatus === 'paid' || invoice.paidAmount >= invoice.totalAmount) {
+      invoice.paymentStatus = 'paid';
       invoice.paidDate = new Date();
+    } else if (invoice.paymentStatus === 'partial' || invoice.paidAmount > 0) {
+      invoice.paymentStatus = 'partial';
     }
 
     await invoice.save();
+
+    if (paymentDifference > 0) {
+      const payment = new Payment({
+        invoice: invoice._id,
+        customer: invoice.customer,
+        amount: paymentDifference,
+        paymentMethod: paymentMethod || invoice.paymentMethod,
+        transactionId,
+        notes,
+        status: 'completed'
+      });
+      await payment.save();
+    }
+
     res.json(invoice);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });

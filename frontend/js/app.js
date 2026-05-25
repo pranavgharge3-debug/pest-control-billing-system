@@ -1232,7 +1232,7 @@ async function updatePaymentStatus(id) {
                     <form id="paymentUpdateForm">
                         <div class="form-group">
                             <label>Payment Status</label>
-                            <select name="paymentStatus">
+                            <select name="paymentStatus" onchange="syncPaymentStatusAmount(this.value, ${invoice.totalAmount}, ${invoice.paidAmount || 0})">
                                 <option value="pending">Pending</option>
                                 <option value="partial">Partial</option>
                                 <option value="paid">Paid</option>
@@ -1279,6 +1279,8 @@ async function submitPaymentUpdate(id) {
         await apiCall(`/invoices/${id}/payment`, 'PATCH', paymentData);
         closeModal();
         loadInvoices();
+        loadPayments();
+        loadDashboardStats();
         alert('Payment updated successfully!');
     } catch (error) {
         alert('Error updating payment: ' + error.message);
@@ -1637,9 +1639,8 @@ async function showAddPaymentModal() {
                         </div>
                         <div class="form-group">
                             <label>Invoice *</label>
-                            <select name="invoice" id="invoiceSelect" required>
+                            <select name="invoice" id="invoiceSelect" required onchange="populatePaymentDetails(this.value)">
                                 <option value="">Select Invoice</option>
-                                ${pendingInvoices.map(i => `<option value="${i._id}" data-customer="${i.customer._id || i.customer}">${i.invoiceNumber} - ₹${i.totalAmount.toLocaleString()}</option>`).join('')}
                             </select>
                         </div>
                         <div class="form-group">
@@ -1673,6 +1674,7 @@ async function showAddPaymentModal() {
             </div>
         `;
         showModal(modalHtml);
+        filterInvoicesByCustomer('');
     } catch (error) {
         alert('Error loading data: ' + error.message);
     }
@@ -1680,23 +1682,72 @@ async function showAddPaymentModal() {
 
 function filterInvoicesByCustomer(customerId) {
     const invoiceSelect = document.getElementById('invoiceSelect');
-    
-    // Clear select
+    if (!invoiceSelect) {
+        console.error('filterInvoicesByCustomer: invoiceSelect element not found');
+        return;
+    }
+
     invoiceSelect.innerHTML = '<option value="">Select Invoice</option>';
-    
-    // Filter invoices from stored data
-    if (window.paymentInvoices) {
-        const filteredInvoices = customerId 
-            ? window.paymentInvoices.filter(i => (i.customer._id || i.customer) === customerId)
-            : window.paymentInvoices;
-        
-        filteredInvoices.forEach(i => {
-            const option = document.createElement('option');
-            option.value = i._id;
-            option.dataset.customer = i.customer._id || i.customer;
-            option.textContent = `${i.invoiceNumber} - ₹${i.totalAmount.toLocaleString()}`;
-            invoiceSelect.appendChild(option);
-        });
+
+    if (!window.paymentInvoices) {
+        console.warn('filterInvoicesByCustomer: no cached payment invoices available');
+        return;
+    }
+
+    const filteredInvoices = customerId
+        ? window.paymentInvoices.filter(i => String(i.customer?._id || i.customer) === String(customerId))
+        : window.paymentInvoices;
+
+    if (!filteredInvoices.length) {
+        console.warn(`No pending invoices found for customer ${customerId}`);
+        invoiceSelect.innerHTML = '<option value="">No pending invoices found</option>';
+        return;
+    }
+
+    filteredInvoices.forEach(i => {
+        const option = document.createElement('option');
+        option.value = i._id;
+        option.dataset.customer = String(i.customer?._id || i.customer);
+        option.textContent = `${i.invoiceNumber} - ₹${i.totalAmount.toLocaleString()} - ${i.paymentStatus || 'pending'}`;
+        invoiceSelect.appendChild(option);
+    });
+}
+
+function populatePaymentDetails(invoiceId) {
+    const amountInput = document.querySelector('input[name="amount"]');
+    const methodSelect = document.querySelector('select[name="paymentMethod"]');
+    if (!invoiceId) {
+        if (amountInput) amountInput.value = '';
+        return;
+    }
+
+    if (!window.paymentInvoices) {
+        console.error('populatePaymentDetails: no payment invoices available');
+        return;
+    }
+
+    const selectedInvoice = window.paymentInvoices.find(i => String(i._id) === String(invoiceId));
+    if (!selectedInvoice) {
+        console.error('populatePaymentDetails: selected invoice not found', invoiceId, window.paymentInvoices);
+        return;
+    }
+
+    const remainingAmount = Number(selectedInvoice.totalAmount || 0) - Number(selectedInvoice.paidAmount || 0);
+    if (amountInput) {
+        amountInput.value = remainingAmount > 0 ? remainingAmount : Number(selectedInvoice.totalAmount || 0);
+    }
+    if (methodSelect && selectedInvoice.paymentMethod) {
+        methodSelect.value = selectedInvoice.paymentMethod;
+    }
+}
+
+function syncPaymentStatusAmount(status, totalAmount, currentPaid) {
+    const amountInput = document.querySelector('input[name="paidAmount"]');
+    if (!amountInput) return;
+
+    const currentValue = Number(amountInput.value || 0);
+    if (status === 'paid' && currentValue <= currentPaid) {
+        amountInput.value = Number(totalAmount || 0);
     }
 }
 
@@ -1726,6 +1777,8 @@ async function savePayment() {
         await apiCall('/payments', 'POST', paymentData);
         closeModal();
         loadPayments();
+        loadInvoices();
+        loadDashboardStats();
         alert('Payment recorded successfully!');
     } catch (error) {
         alert('Error recording payment: ' + error.message);
